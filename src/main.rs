@@ -23,7 +23,7 @@ fn main() {
     let file_buffer = BufReader::new(&file);
     let stdin = stdin();
     let mut stdout = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-    let mut buffer:Vec<Vec<char>> = Vec::new();
+    let mut buffer: Vec<Vec<char>> = Vec::new();
     let mut cursor = Cursor{row: 0, column: 0};
     let mut row_offset = 0;
 
@@ -82,6 +82,10 @@ fn main() {
                 }
             }
 
+            Event::Key(Key::Char(c)) => {
+                insert(& mut buffer, c, & mut cursor);
+            }
+
             _ => {}
         }
 
@@ -106,5 +110,20 @@ fn draw(buffer:&Vec<Vec<char>>, rows:usize, stdout: &mut termion::screen::Altern
         if i != terminal_row -1{
             write!(stdout, "{}", "\r\n");
         }
+    }
+}
+
+fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) {
+    if c == '\n'{
+        let rest: Vec<char> = buffer[cursor.row]
+            .drain(cursor.column..)
+            .collect();
+
+        buffer.insert(cursor.row + 1, rest);
+        cursor.row += 0;
+        cursor.column = 0;
+    } else if !c.is_control() {
+        buffer[cursor.row].insert(cursor.column, c);
+        cursor.column += 1;
     }
 }
