@@ -52,7 +52,7 @@ fn main() {
 
                 if cursor.row > 0 {
                     cursor.row -= 1;
-                    cursor.column = min(buffer[cursor.row].len() - 1, cursor.column);
+                    cursor.column = min(buffer[cursor.row].len(), cursor.column);
                     if cursor.row + 2 > terminal_row as usize && row_offset > 0{
                         row_offset -= 1;
                     }
@@ -63,7 +63,7 @@ fn main() {
 
                 if cursor.row + 1 < buffer.len() {
                     cursor.row += 1;
-                    cursor.column = min(cursor.column, buffer[cursor.row].len() - 1);
+                    cursor.column = min(cursor.column, buffer[cursor.row].len());
                     if  cursor.row + 1 > terminal_row as usize  && row_offset <= buffer.len() {
                         row_offset += 1;
                     }
@@ -83,7 +83,10 @@ fn main() {
             }
 
             Event::Key(Key::Char(c)) => {
-                insert(& mut buffer, c, & mut cursor);
+                let new_line = insert(& mut buffer, c, & mut cursor);
+                if cursor.row + 2 > terminal_row as usize && new_line == true{
+                    row_offset += 1;
+                }
             }
 
             Event::Key(Key::Backspace) => {
@@ -121,18 +124,27 @@ fn draw(buffer:&Vec<Vec<char>>, rows:usize, stdout: &mut termion::screen::Altern
     }
 }
 
-fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) {
+fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) -> bool {
     if c == '\n'{
         let rest: Vec<char> = buffer[cursor.row]
             .drain(cursor.column..)
             .collect();
 
         buffer.insert(cursor.row + 1, rest);
-        cursor.column = 0;
-    } else if !c.is_control() {
+
+        if cursor.column == buffer[cursor.row].len(){
+            cursor.row += 1;
+            cursor.column = 0;
+        }else{
+            cursor.column = 0;
+        }
+
+        return true;
+    }else if !c.is_control(){
         buffer[cursor.row].insert(cursor.column, c);
         cursor.column += 1;
     }
+    return false;
 }
 
 fn backspace(buffer:& mut Vec<Vec<char>>, cursor:& mut Cursor) -> bool {
