@@ -77,7 +77,7 @@ fn main() {
             }
 
             Event::Key(Key::Right) => {
-                if cursor.column + 1 < buffer[cursor.row].len() {
+                if cursor.column < buffer[cursor.row].len() {
                     cursor.column = min(cursor.column + 1, buffer[cursor.row].len());
                 }
             }
@@ -85,6 +85,14 @@ fn main() {
             Event::Key(Key::Char(c)) => {
                 insert(& mut buffer, c, & mut cursor);
             }
+
+            Event::Key(Key::Backspace) => {
+                let new_line = backspace(& mut buffer, & mut cursor);
+                if cursor.row + 2 > terminal_row as usize && row_offset > 0 && new_line == true{
+                    row_offset -= 1;
+                }
+            }
+
 
             _ => {}
         }
@@ -120,10 +128,29 @@ fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) {
             .collect();
 
         buffer.insert(cursor.row + 1, rest);
-        cursor.row += 0;
         cursor.column = 0;
     } else if !c.is_control() {
         buffer[cursor.row].insert(cursor.column, c);
         cursor.column += 1;
+    }
+}
+
+fn backspace(buffer:& mut Vec<Vec<char>>, cursor:& mut Cursor) -> bool {
+    if cursor.column == 0 &&
+        cursor.row == 0
+    {
+        return false;
+    }
+
+    if cursor.column == 0 {
+        let line = buffer.remove(cursor.row);
+        cursor.row -= 1;
+        buffer[cursor.row].extend(line.into_iter());
+        cursor.column = buffer[cursor.row].len();
+        return true;
+    }else{
+        cursor.column -= 1;
+        buffer[cursor.row].remove(cursor.column);
+        return false;
     }
 }
