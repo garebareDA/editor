@@ -26,6 +26,7 @@ fn main() {
     let mut buffer: Vec<Vec<char>> = Vec::new();
     let mut cursor = Cursor{row: 0, column: 0};
     let mut row_offset = 0;
+    let mut col_offset = 0;
 
     write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1, 1)).unwrap();
 
@@ -37,12 +38,12 @@ fn main() {
         buffer.push(line_vec);
     }
 
-    draw(&buffer, row_offset, &mut stdout);
+    draw(&buffer, row_offset, col_offset, &mut stdout);
     write!(stdout, "{}", cursor::Goto(1, 1));
     stdout.flush().unwrap();
 
     for evt in stdin.events() {
-        let (_, terminal_row) = termion::terminal_size().unwrap();
+        let (terminal_col, terminal_row) = termion::terminal_size().unwrap();
         match evt.unwrap() {
             Event::Key(Key::Ctrl('c')) => {
                 return;
@@ -64,6 +65,7 @@ fn main() {
                 if cursor.row + 1 < buffer.len() {
                     cursor.row += 1;
                     cursor.column = min(cursor.column, buffer[cursor.row].len());
+
                     if  cursor.row + 1 > terminal_row as usize  && row_offset <= buffer.len() {
                         row_offset += 1;
                     }
@@ -73,12 +75,18 @@ fn main() {
             Event::Key(Key::Left) => {
                 if cursor.column > 0 {
                     cursor.column -= 1;
+                    if cursor.column + 2 > terminal_col as usize && col_offset > 0{
+                        col_offset -= 1;
+                    }
                 }
             }
 
             Event::Key(Key::Right) => {
                 if cursor.column < buffer[cursor.row].len() {
                     cursor.column = min(cursor.column + 1, buffer[cursor.row].len());
+                    if cursor.column + 1 > terminal_col as usize{
+                        col_offset += 1;
+                    }
                 }
             }
 
@@ -100,21 +108,26 @@ fn main() {
             _ => {}
         }
 
-        draw(&buffer, row_offset, &mut stdout);
+        draw(&buffer, row_offset,col_offset, &mut stdout);
         write!(stdout, "{}", cursor::Goto(cursor.column as u16 +1, cursor.row as u16 + 1));
         stdout.flush().unwrap();
     }
 }
 
-fn draw(buffer:&Vec<Vec<char>>, rows:usize, stdout: &mut termion::screen::AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
-    let (_, terminal_row) = termion::terminal_size().unwrap();
+fn draw(buffer:&Vec<Vec<char>>, rows:usize, cols:usize, stdout: &mut termion::screen::AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
+    let (terminal_col, terminal_row) = termion::terminal_size().unwrap();
     let mut terminal_row = min(terminal_row as usize, buffer.len());
     terminal_row += rows;
     write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1, 1)).unwrap();
 
     for i in rows..terminal_row {
         for j in 0..buffer[i].len() {
-            let c = buffer[i].get(j).unwrap();
+
+            if j + 1 > terminal_col as usize || j + cols + 1 > buffer[i].len() {
+                continue;
+            }
+
+            let c = buffer[i].get(j + cols).unwrap();
             write!(stdout, "{}", c);
         }
 
