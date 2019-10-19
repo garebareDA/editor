@@ -64,10 +64,17 @@ fn main() {
 
                 if cursor.row + 1 < buffer.len() {
                     cursor.row += 1;
+                    let before_cursor_column = cursor.column;
                     cursor.column = min(cursor.column, buffer[cursor.row].len());
 
                     if  cursor.row + 1 > terminal_row as usize  && row_offset <= buffer.len() {
                         row_offset += 1;
+                    }
+
+                    if terminal_col as usize > buffer[cursor.row].len(){
+                        col_offset = 0;
+                    }else if cursor.column < buffer[cursor.row - 1].len() && before_cursor_column > buffer[cursor.row].len(){
+                        col_offset = buffer[cursor.row].len() - terminal_col as usize;
                     }
                 }
             }
