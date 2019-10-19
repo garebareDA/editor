@@ -128,7 +128,7 @@ fn main() {
 
                 if cursor.column + 2> terminal_col as usize && new_line == false{
                     col_offset -= 1;
-                }else{
+                }else if new_line == true && cursor.column + 2> terminal_col as usize{
                     col_offset = (buffer[cursor.row].len() - terminal_col as usize) + 1;
                 }
             }
