@@ -53,9 +53,17 @@ fn main() {
 
                 if cursor.row > 0 {
                     cursor.row -= 1;
+                    let before_cursor_column = cursor.column;
                     cursor.column = min(buffer[cursor.row].len(), cursor.column);
+
                     if cursor.row + 2 > terminal_row as usize && row_offset > 0{
                         row_offset -= 1;
+                    }
+
+                    if terminal_col as usize > buffer[cursor.row].len(){
+                        col_offset = 0;
+                    }else if cursor.column < buffer[cursor.row + 1].len() && before_cursor_column> buffer[cursor.row].len(){
+                        col_offset = (buffer[cursor.row].len() - terminal_col as usize) - 1;
                     }
                 }
             }
@@ -74,7 +82,7 @@ fn main() {
                     if terminal_col as usize > buffer[cursor.row].len(){
                         col_offset = 0;
                     }else if cursor.column < buffer[cursor.row - 1].len() && before_cursor_column > buffer[cursor.row].len(){
-                        col_offset = buffer[cursor.row].len() - terminal_col as usize;
+                        col_offset = (buffer[cursor.row].len() - terminal_col as usize) + 1;
                     }
                 }
             }
@@ -101,13 +109,27 @@ fn main() {
                 let new_line = insert(& mut buffer, c, & mut cursor);
                 if cursor.row + 2 > terminal_row as usize && new_line == true{
                     row_offset += 1;
+                }else if new_line == true{
+                    col_offset = 0;
                 }
+
+                if cursor.column + 1 > terminal_col as usize{
+                    col_offset += 1;
+                }
+
+
             }
 
             Event::Key(Key::Backspace) => {
                 let new_line = backspace(& mut buffer, & mut cursor);
                 if cursor.row + 2 > terminal_row as usize && row_offset > 0 && new_line == true{
                     row_offset -= 1;
+                }
+
+                if cursor.column + 2> terminal_col as usize && new_line == false{
+                    col_offset -= 1;
+                }else{
+                    col_offset = (buffer[cursor.row].len() - terminal_col as usize) + 1;
                 }
             }
 
