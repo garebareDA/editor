@@ -19,7 +19,7 @@ struct Cursor {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let file = File::open(&args[1]).unwrap();
+    let file = File::open(&args[1]).expect("file not found");
     let file_buffer = BufReader::new(&file);
     let stdin = stdin();
     let mut stdout = AlternateScreen::from(stdout().into_raw_mode().unwrap());
@@ -97,7 +97,7 @@ fn main() {
             }
 
             Event::Key(Key::Right) => {
-                if cursor.column < buffer[cursor.row].len() {
+                if  buffer.len() > 0 && cursor.column < buffer[cursor.row].len(){
                     cursor.column = min(cursor.column + 1, buffer[cursor.row].len());
                     if cursor.column + 1 > terminal_col as usize{
                         col_offset += 1;
@@ -107,7 +107,7 @@ fn main() {
 
             Event::Key(Key::Char(c)) => {
                 let new_line = insert(& mut buffer, c, & mut cursor);
-                if cursor.row + 2 > terminal_row as usize && new_line == true{
+                if cursor.row + 1 > terminal_row as usize && new_line == true{
                     row_offset += 1;
                 }else if new_line == true{
                     col_offset = 0;
@@ -131,6 +131,10 @@ fn main() {
                 }else if new_line == true && cursor.column + 2> terminal_col as usize{
                     col_offset = (buffer[cursor.row].len() - terminal_col as usize) + 1;
                 }
+            }
+
+            Event::Key(Key::Ctrl('s')) => {
+                save(& buffer, &args[1]);
             }
 
 
@@ -168,23 +172,41 @@ fn draw(buffer:&Vec<Vec<char>>, rows:usize, cols:usize, stdout: &mut termion::sc
 
 fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) -> bool {
     if c == '\n'{
-        let rest: Vec<char> = buffer[cursor.row]
+        let (_, terminal_row) = termion::terminal_size().unwrap();
+        if buffer.len() != 0 {
+            let rest: Vec<char> = buffer[cursor.row]
             .drain(cursor.column..)
             .collect();
+            buffer.insert(cursor.row + 1, rest);
 
-        buffer.insert(cursor.row + 1, rest);
+            if cursor.column == buffer[cursor.row].len() {
+                cursor.row += 1;
+                cursor.column = 0;
+            }else{
+                cursor.column = 0;
+            }
 
-        if cursor.column == buffer[cursor.row].len(){
+        }else if buffer.len() == 0{
+            let rest: Vec<char> = Vec::new();
+            buffer.insert(0, rest);
+            let rest: Vec<char> = Vec::new();
+            buffer.insert(1, rest);
+
             cursor.row += 1;
-            cursor.column = 0;
-        }else{
             cursor.column = 0;
         }
 
         return true;
     }else if !c.is_control(){
-        buffer[cursor.row].insert(cursor.column, c);
-        cursor.column += 1;
+        if buffer.len() != 0 {
+            buffer[cursor.row].insert(cursor.column, c);
+            cursor.column += 1;
+        }else{
+            let mut rest: Vec<char> = Vec::new();
+            rest.push(c);
+            buffer.insert(0, rest);
+            cursor.column += 1;
+        }
     }
     return false;
 }
@@ -206,5 +228,16 @@ fn backspace(buffer:& mut Vec<Vec<char>>, cursor:& mut Cursor) -> bool {
         cursor.column -= 1;
         buffer[cursor.row].remove(cursor.column);
         return false;
+    }
+}
+
+fn save(buffer:& Vec<Vec<char>>, path:&std::string::String) {
+    if let Ok(mut file) = File::create(path) {
+        for line in buffer {
+            for c in line {
+                write!(file, "{}", c).unwrap();
+            }
+            writeln!(file).unwrap();
+        }
     }
 }
