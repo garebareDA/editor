@@ -27,6 +27,7 @@ fn main() {
     let mut cursor = Cursor{row: 0, column: 0};
     let mut row_offset = 0;
     let mut col_offset = 0;
+    let mut clear:bool = true;
 
     write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1, 1)).unwrap();
 
@@ -38,7 +39,7 @@ fn main() {
         buffer.push(line_vec);
     }
 
-    draw(&buffer, row_offset, col_offset, &mut stdout);
+    draw(&buffer, row_offset, col_offset, &mut stdout, clear);
     write!(stdout, "{}", cursor::Goto(1, 1));
     stdout.flush().unwrap();
 
@@ -52,18 +53,22 @@ fn main() {
             Event::Key(Key::Up) => {
 
                 if cursor.row > 0 {
+                    clear = false;
                     cursor.row -= 1;
                     let before_cursor_column = cursor.column;
                     cursor.column = min(buffer[cursor.row].len(), cursor.column);
 
                     if cursor.row + 2 > terminal_row as usize && row_offset > 0{
                         row_offset -= 1;
+                        clear = true;
                     }
 
                     if terminal_col as usize > buffer[cursor.row].len(){
                         col_offset = 0;
+                        clear = true;
                     }else if cursor.column < buffer[cursor.row + 1].len() && before_cursor_column> buffer[cursor.row].len(){
                         col_offset = (buffer[cursor.row].len() - terminal_col as usize) - 1;
+                        clear = true;
                     }
                 }
             }
@@ -71,57 +76,69 @@ fn main() {
             Event::Key(Key::Down) => {
 
                 if cursor.row + 1 < buffer.len() {
+                    clear = false;
                     cursor.row += 1;
                     let before_cursor_column = cursor.column;
                     cursor.column = min(cursor.column, buffer[cursor.row].len());
 
                     if  cursor.row + 1 > terminal_row as usize  && row_offset <= buffer.len() {
                         row_offset += 1;
+                        clear = true;
                     }
 
                     if terminal_col as usize > buffer[cursor.row].len(){
                         col_offset = 0;
+                        clear = true;
                     }else if cursor.column < buffer[cursor.row - 1].len() && before_cursor_column > buffer[cursor.row].len(){
                         col_offset = (buffer[cursor.row].len() - terminal_col as usize) + 1;
+                        clear = true;
                     }
                 }
             }
 
             Event::Key(Key::Left) => {
                 if cursor.column > 0 {
+                    clear = false;
                     cursor.column -= 1;
                     if cursor.column + 2 > terminal_col as usize && col_offset > 0{
                         col_offset -= 1;
+                        clear = true;
                     }
                 }
             }
 
             Event::Key(Key::Right) => {
+                clear = false;
                 if  buffer.len() > 0 && cursor.column < buffer[cursor.row].len(){
                     cursor.column = min(cursor.column + 1, buffer[cursor.row].len());
                     if cursor.column + 1 > terminal_col as usize{
                         col_offset += 1;
+                        clear = true;
                     }
                 }
             }
 
             Event::Key(Key::Char(c)) => {
                 let new_line = insert(& mut buffer, c, & mut cursor);
+                clear = true;
+
                 if cursor.row + 1 > terminal_row as usize && new_line == true{
                     row_offset += 1;
                 }else if new_line == true{
                     col_offset = 0;
+                }else{
+                    clear = false;
                 }
 
                 if cursor.column + 1 > terminal_col as usize{
                     col_offset += 1;
+                    clear = true;
                 }
-
-
             }
 
             Event::Key(Key::Backspace) => {
                 let new_line = backspace(& mut buffer, & mut cursor);
+                clear = true;
                 if cursor.row + 2 > terminal_row as usize && row_offset > 0 && new_line == true{
                     row_offset -= 1;
                 }
@@ -137,21 +154,25 @@ fn main() {
                 save(& buffer, &args[1]);
             }
 
-
             _ => {}
         }
 
-        draw(&buffer, row_offset,col_offset, &mut stdout);
+        draw(&buffer, row_offset,col_offset, &mut stdout, clear);
         write!(stdout, "{}", cursor::Goto(cursor.column as u16 +1, cursor.row as u16 + 1));
         stdout.flush().unwrap();
     }
 }
 
-fn draw(buffer:&Vec<Vec<char>>, rows:usize, cols:usize, stdout: &mut termion::screen::AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>) {
+fn draw(buffer:&Vec<Vec<char>>, rows:usize, cols:usize, stdout: &mut termion::screen::AlternateScreen<termion::raw::RawTerminal<std::io::Stdout>>, clear: bool) {
     let (terminal_col, terminal_row) = termion::terminal_size().unwrap();
     let mut terminal_row = min(terminal_row as usize, buffer.len());
     terminal_row += rows;
-    write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1, 1)).unwrap();
+
+    if clear == true {
+        write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1, 1)).unwrap();
+    }else{
+        write!(stdout, "{}{}", termion::clear::CurrentLine, termion::cursor::Goto(1, 1)).unwrap();
+    }
 
     for i in rows..terminal_row {
         for j in 0..buffer[i].len() {
@@ -172,7 +193,6 @@ fn draw(buffer:&Vec<Vec<char>>, rows:usize, cols:usize, stdout: &mut termion::sc
 
 fn insert(buffer:& mut Vec<Vec<char>>, c:char, cursor:& mut Cursor) -> bool {
     if c == '\n'{
-        let (_, terminal_row) = termion::terminal_size().unwrap();
         if buffer.len() != 0 {
             let rest: Vec<char> = buffer[cursor.row]
             .drain(cursor.column..)
