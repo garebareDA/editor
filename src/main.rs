@@ -17,6 +17,8 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 
+
+
 struct Cursor {
     row: usize,
     column: usize,
@@ -24,7 +26,24 @@ struct Cursor {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let file = File::open(&args[1]).expect("file not found");
+    let path = &args[1];
+    let history = Vec::new();
+    let (mut path_conti, mut conti, mut history_conti) = editor(path, history);
+
+    loop {
+        if conti{
+           let (path_tmp, conti_tmp, history_tmp) = editor(&path_conti, history_conti);
+           path_conti = path_tmp;
+           conti = conti_tmp;
+           history_conti = history_tmp;
+        }else{
+            return
+        }
+    }
+}
+
+fn editor(path:&String, history: Vec<String>) -> (String, bool, Vec<String>) {
+    let file = File::open(path).expect("file not found");
     let file_buffer = BufReader::new(&file);
     let stdin = stdin();
     let mut target = "./".to_string();
@@ -40,8 +59,15 @@ fn main() {
     let mut clear: bool = true;
     let mut mode = "text";
     let mut file_view:Vec<String> = Vec::new();
-    let mut file_history:Vec<String> = Vec::new();
-    file_history.push("./".to_string());
+    let mut file_history:Vec<String>;
+
+    if history.len() < 1{
+        file_history = Vec::new();
+        file_history.push("./".to_string());
+    }else{
+        file_history = history.clone();
+        target = history[history.len() - 1].clone();
+    }
 
     write!(
         stdout,
@@ -76,7 +102,9 @@ fn main() {
         if mode == "text" {
             match evt.unwrap() {
                 Event::Key(Key::Ctrl('c')) => {
-                    return;
+                    let st = " ".to_string();
+                    let vec:Vec<String> = Vec::new();
+                    return (st,  false, vec);
                 }
 
                 Event::Key(Key::Up) => {
@@ -191,7 +219,7 @@ fn main() {
                 }
 
                 Event::Key(Key::Ctrl('s')) => {
-                    save(&buffer, &args[1]);
+                    save(&buffer, path);
                 }
 
                 Event::Key(Key::Ctrl('w')) => {
@@ -247,6 +275,11 @@ fn main() {
                         file_history.push(target_tmp);
                         file_view = file_view_tmp;
                         target = tmp;
+                    } else if c=='\n' && md.is_dir() == false {
+                        let file_path_history = file_history.clone();
+                        let file_path_view = file_view[cursor.row - 1].clone();
+
+                        return (file_path_view, true, file_path_history);
                     }
                 }
 
@@ -283,6 +316,10 @@ fn main() {
 
         stdout.flush().unwrap();
     }
+
+    let st = " ".to_string();
+    let vec:Vec<String> = Vec::new();
+    return (st,  false, vec);
 }
 
 fn draw(
