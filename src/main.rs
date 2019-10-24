@@ -18,7 +18,6 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 
 
-
 struct Cursor {
     row: usize,
     column: usize,
@@ -245,6 +244,7 @@ fn editor(path:&String, history: Vec<String>) -> (String, bool, Vec<String>) {
                         cursor.column = terminal_col_resize;
                         col_offset = 0;
                         row_offset = 0;
+                        clear = true;
                     }
                 }
 
@@ -259,7 +259,7 @@ fn editor(path:&String, history: Vec<String>) -> (String, bool, Vec<String>) {
                 }
 
                 Event::Key(Key::Down) => {
-                    if cursor.row + 1 < file_view.len() + 1 {
+                    if cursor.row < file_view.len() {
                         cursor.row += 1;
                         if cursor.row + 2 > terminal_row + 1 && row_offset <= file_view.len() - 1{
                             row_offset += 1;
@@ -270,11 +270,12 @@ fn editor(path:&String, history: Vec<String>) -> (String, bool, Vec<String>) {
                 Event::Key(Key::Char(c)) => {
                     let md = metadata(&file_view[cursor.row - 1].to_string()).unwrap();
                     if c == '\n' && md.is_dir() == true {
-                        let (file_view_tmp, target_tmp) = file_open(&mut file_view, &mut cursor, &mut target);
+                        let (file_view_tmp, target_tmp) = file_open(&mut file_view, &mut cursor);
                         let tmp = target_tmp.clone();
                         file_history.push(target_tmp);
                         file_view = file_view_tmp;
                         target = tmp;
+                        row_offset = 0;
                     } else if c=='\n' && md.is_dir() == false {
                         let file_path_history = file_history.clone();
                         let file_path_view = file_view[cursor.row - 1].clone();
@@ -306,7 +307,7 @@ fn editor(path:&String, history: Vec<String>) -> (String, bool, Vec<String>) {
                 cursor::Goto(cursor.column as u16 + 1, cursor.row as u16 + 1)
             );
         } else {
-            draw_file(&mut stdout, &mut file_view, &mut target , row_offset);
+            draw_file(&mut stdout, &mut file_view, &mut target , row_offset, path);
             write!(
                 stdout,
                 "{}",
@@ -365,7 +366,7 @@ fn draw(
             _ => st = "",
         }
 
-        write!(stdout, "{}{}{}  ", color::Fg(color::LightGreen), st, i + 1);
+        write!(stdout, "{}{}{}| ", color::Fg(color::LightGreen), st, i + 1);
 
         for j in 0..buffer[i].len() {
             if j + 1 > terminal_col as usize || j + cols + 1 > buffer[i].len() {
@@ -436,9 +437,9 @@ fn draw_file(
     file_view: &mut Vec<String>,
     target: &str,
     rows: usize,
+    path:&String
 ) {
     let (_, terminal_row) = termion::terminal_size().unwrap();
-    let terminal_row_resize = 1;
     let mut terminal_row = min((terminal_row - 1) as usize, file_view.len());
     terminal_row += rows;
 
@@ -450,6 +451,7 @@ fn draw_file(
     )
     .unwrap();
 
+    write!(stdout, "{}{} " , color::Fg(color::Blue), path);
     write!(stdout,"{}{}{}{}{}{}", color::Fg(color::Black),color::Bg(color::White),target, "\r\n",color::Bg(color::Reset),color::Fg(color::Reset));
 
     for i in rows..terminal_row{
@@ -476,7 +478,7 @@ fn files(target:&str) -> Vec<String> {
     files
 }
 
-fn file_open(file_view: &mut Vec<String>, cursor:&mut Cursor, target_file:&mut str) -> (Vec<String>, String) {
+fn file_open(file_view: &mut Vec<String>, cursor:&mut Cursor) -> (Vec<String>, String) {
     let target = file_view[cursor.row - 1].to_string();
     let file_opend = files(&target);
     cursor.row = 1;
