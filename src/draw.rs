@@ -3,6 +3,7 @@ extern crate termion;
 use std::cmp::min;
 use std::fs::metadata;
 use std::io::Write;
+
 use termion::color;
 
 pub fn draw_text(
@@ -84,13 +85,13 @@ pub fn draw_file(
     .unwrap();
 
     write!(stdout, "{}{} ", color::Fg(color::Blue), path);
+
     write!(
         stdout,
-        "{}{}{}{}{}{}",
+        "{}{}{}\r\n{}{}",
         color::Fg(color::Black),
         color::Bg(color::White),
         target,
-        "\r\n",
         color::Bg(color::Reset),
         color::Fg(color::Reset)
     );
