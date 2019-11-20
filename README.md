@@ -1,7 +1,7 @@
 # editor  
 
-自作エディターです。  
-cargo run {file }で実行  
+自作のテキストエディターです。  
+cargo run {file path}で実行  
 
 ### テキストエディタ時の操作  
 方向キーでカーソル移動  
